@@ -1,0 +1,4 @@
+node_modules/
+.env
+Shell Technical Data extractor*.json
+n8n Shell Technical data extract

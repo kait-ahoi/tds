@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shell TDS Extractor</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; background: #f5f5f5; color: #222; }
+
+    header {
+      background: #DD1D21;
+      color: #fff;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: 0.5px; }
+    header span { font-size: 0.85rem; opacity: 0.85; }
+
+    main { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
+
+    .card {
+      background: #fff;
+      border-radius: 6px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; color: #DD1D21; }
+
+    .drop-zone {
+      border: 2px dashed #ccc;
+      border-radius: 6px;
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: #DD1D21; background: #fff5f5; }
+    .drop-zone input[type=file] { display: none; }
+    .drop-zone .icon { font-size: 2rem; margin-bottom: 8px; }
+    .drop-zone p { color: #666; font-size: 0.9rem; }
+    .drop-zone .filename { color: #DD1D21; font-weight: 600; margin-top: 8px; }
+
+    .btn {
+      background: #DD1D21;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 24px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 16px;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #b81519; }
+    .btn:disabled { background: #aaa; cursor: not-allowed; }
+
+    .status {
+      margin-top: 12px;
+      font-size: 0.9rem;
+      min-height: 1.4em;
+    }
+    .status.ok { color: #2a7a2a; }
+    .status.err { color: #cc0000; }
+    .status.info { color: #555; }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .toolbar input[type=text] {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 7px 12px;
+      font-size: 0.9rem;
+      width: 260px;
+    }
+    .toolbar input[type=text]:focus { outline: none; border-color: #DD1D21; }
+    .btn-outline {
+      background: #fff;
+      color: #DD1D21;
+      border: 1.5px solid #DD1D21;
+      border-radius: 4px;
+      padding: 7px 18px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-outline:hover { background: #fff5f5; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    thead tr { background: #DD1D21; color: #fff; }
+    thead th { padding: 10px 12px; text-align: left; font-weight: 600; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid #eee; }
+    tbody tr:hover { background: #fafafa; }
+    tbody td { padding: 9px 12px; vertical-align: top; }
+    tbody td.sku { font-family: monospace; font-size: 0.82rem; color: #555; }
+    .empty { text-align: center; padding: 40px; color: #999; }
+    .count { font-size: 0.82rem; color: #888; margin-left: auto; }
+  </style>
+</head>
+<body x-data="app()" x-init="loadRows()">
+
+<header>
+  <div>
+    <h1>Shell TDS Extractor</h1>
+    <span>Tehnilistest andmelehtedest SKU-de eraldamine</span>
+  </div>
+</header>
+
+<main>
+  <!-- Upload -->
+  <div class="card">
+    <h2>Laadi üles PDF</h2>
+    <div
+      class="drop-zone"
+      :class="{ dragover: dragging }"
+      @click="$refs.fileInput.click()"
+      @dragover.prevent="dragging = true"
+      @dragleave="dragging = false"
+      @drop.prevent="onDrop($event)"
+    >
+      <div class="icon">📄</div>
+      <p>Lohista PDF siia või klõpsa valimiseks</p>
+      <div class="filename" x-text="file ? file.name : ''"></div>
+      <input type="file" accept=".pdf" x-ref="fileInput" @change="onFileChange($event)">
+    </div>
+    <button class="btn" :disabled="!file || uploading" @click="submit()">
+      <span x-show="!uploading">Saada</span>
+      <span x-show="uploading">Töötleb...</span>
+    </button>
+    <div class="status" :class="statusClass" x-text="statusMsg"></div>
+  </div>
+
+  <!-- Results -->
+  <div class="card">
+    <h2>Tulemused</h2>
+    <div class="toolbar">
+      <input type="text" placeholder="Otsi toodet..." x-model="search">
+      <button class="btn-outline" @click="loadRows()">&#x21bb; Uuenda</button>
+      <span class="count" x-show="rows.length" x-text="filteredRows.length + ' / ' + rows.length + ' toodet'"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Tootenimi</th>
+          <th>Viscosity</th>
+          <th>ACEA</th>
+          <th>API</th>
+          <th>SKU EE</th>
+          <th>SKU LV</th>
+          <th>SKU LT</th>
+          <th>SAPS</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="filteredRows.length === 0">
+          <tr><td colspan="8" class="empty">Andmed puuduvad</td></tr>
+        </template>
+        <template x-for="row in filteredRows" :key="row.id">
+          <tr>
+            <td x-text="row.Tootenimi || row.title || '—'"></td>
+            <td x-text="row.Viscosity || row.viscosity || '—'"></td>
+            <td x-text="row.ACEA || row.acea || '—'"></td>
+            <td x-text="row.API || row.api || '—'"></td>
+            <td class="sku" x-text="row.SKU_EE || row.sku_ee || '—'"></td>
+            <td class="sku" x-text="row.SKU_LV || row.sku_lv || '—'"></td>
+            <td class="sku" x-text="row.SKU_LT || row.sku_lt || '—'"></td>
+            <td x-text="row.SAPS || row.saps || '—'"></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+function app() {
+  return {
+    file: null,
+    dragging: false,
+    uploading: false,
+    statusMsg: '',
+    statusClass: '',
+    rows: [],
+    search: '',
+    refreshTimer: null,
+
+    get filteredRows() {
+      const q = this.search.toLowerCase().trim();
+      if (!q) return this.rows;
+      return this.rows.filter(r => {
+        const name = (r.Tootenimi || r.title || '').toLowerCase();
+        return name.includes(q);
+      });
+    },
+
+    onFileChange(e) {
+      this.file = e.target.files[0] || null;
+    },
+
+    onDrop(e) {
+      this.dragging = false;
+      const f = e.dataTransfer.files[0];
+      if (f && f.type === 'application/pdf') this.file = f;
+    },
+
+    async submit() {
+      if (!this.file) return;
+      this.uploading = true;
+      this.statusMsg = 'Saadan...';
+      this.statusClass = 'info';
+      const form = new FormData();
+      form.append('fail', this.file);
+      try {
+        await fetch('/api/submit', { method: 'POST', body: form });
+        this.statusMsg = 'Valmis! Tabel uueneb 30 sekundi pärast.';
+        this.statusClass = 'ok';
+        this.refreshTimer = setTimeout(() => this.loadRows(), 30000);
+      } catch (e) {
+        this.statusMsg = 'Viga: ' + e.message;
+        this.statusClass = 'err';
+      } finally {
+        this.uploading = false;
+      }
+    },
+
+    async loadRows() {
+      try {
+        const res = await fetch('/api/rows');
+        const data = await res.json();
+        this.rows = Array.isArray(data) ? data : (data.rows || data.data || []);
+      } catch (e) {
+        console.error('Ridade laadimine ebaõnnestus', e);
+      }
+    }
+  };
+}
+</script>
+</body>
+</html>
