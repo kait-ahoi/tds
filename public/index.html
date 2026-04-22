@@ -233,6 +233,7 @@
           <th>ACEA</th>
           <th>API</th>
           <th>SAPS</th>
+          <th x-text="t.fields.fuel"></th>
           <th>OEM</th>
           <th>SKU EE</th>
           <th>SKU LV</th>
@@ -241,7 +242,7 @@
       </thead>
       <tbody>
         <template x-if="filteredRows.length === 0">
-          <tr><td colspan="10" class="empty" x-text="t.noData"></td></tr>
+          <tr><td colspan="11" class="empty" x-text="t.noData"></td></tr>
         </template>
         <template x-for="row in filteredRows" :key="row.id">
           <tr>
@@ -251,6 +252,7 @@
             <td x-text="row.ACEA || '—'"></td>
             <td x-text="row.API || '—'"></td>
             <td x-text="row.SAPS || '—'"></td>
+            <td x-text="row.fuelcompatibility || '—'"></td>
             <td x-text="row.OEM || '—'"></td>
             <td class="sku" x-text="row.SKU_EE || '—'"></td>
             <td class="sku" x-text="row.SKU_LV || '—'"></td>
