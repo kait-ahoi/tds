@@ -5,14 +5,23 @@ const multer = require('multer');
 const axios = require('axios');
 const path = require('path');
 const FormData = require('form-data');
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(compression());
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 }
+});
+
+const mailer = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false,
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
 });
 
 app.post('/api/submit', upload.single('fail'), async (req, res) => {
@@ -37,6 +46,23 @@ app.get('/api/rows', async (req, res) => {
       { headers: { 'X-N8N-API-KEY': process.env.N8N_API_KEY } }
     );
     res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/notify', async (req, res) => {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    return res.status(503).json({ error: 'SMTP not configured' });
+  }
+  try {
+    await mailer.sendMail({
+      from: process.env.SMTP_USER,
+      to: 'kait@jungent.eu',
+      subject: req.body.subject || 'TDS viga',
+      text: req.body.text || ''
+    });
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

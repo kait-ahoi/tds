@@ -15,10 +15,23 @@
       padding: 16px 32px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      justify-content: space-between;
     }
-    header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: 0.5px; }
+    header h1 { font-size: 1.25rem; font-weight: 700; }
     header span { font-size: 0.85rem; opacity: 0.85; }
+
+    .lang-toggle {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 4px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 5px 12px;
+      flex-shrink: 0;
+    }
+    .lang-toggle:hover { background: rgba(255,255,255,0.3); }
 
     main { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
 
@@ -43,7 +56,8 @@
     .drop-zone input[type=file] { display: none; }
     .drop-zone .icon { font-size: 2rem; margin-bottom: 8px; }
     .drop-zone p { color: #666; font-size: 0.9rem; }
-    .drop-zone .filename { color: #DD1D21; font-weight: 600; margin-top: 8px; }
+    .drop-zone .file-list { text-align: left; margin-top: 10px; font-size: 0.82rem; color: #555; list-style: none; padding: 0; }
+    .drop-zone .file-list li { padding: 2px 0; }
 
     .btn {
       background: #DD1D21;
@@ -60,14 +74,24 @@
     .btn:hover { background: #b81519; }
     .btn:disabled { background: #aaa; cursor: not-allowed; }
 
-    .status {
-      margin-top: 12px;
-      font-size: 0.9rem;
-      min-height: 1.4em;
-    }
+    .status { margin-top: 12px; font-size: 0.9rem; min-height: 1.4em; }
     .status.ok { color: #2a7a2a; }
     .status.err { color: #cc0000; }
     .status.info { color: #555; }
+
+    .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 8px; }
+    .result-card {
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 14px 16px;
+      background: #fafafa;
+    }
+    .result-card .product-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; color: #DD1D21; }
+    .result-card .field-row { display: flex; gap: 6px; font-size: 0.82rem; margin-bottom: 3px; flex-wrap: wrap; }
+    .result-card .field-label { color: #888; min-width: 70px; }
+    .result-card .field-value { color: #222; font-weight: 500; }
+    .result-card .field-value.missing { color: #aaa; font-style: italic; }
+    .result-card.failed { border-color: #f5c6c6; background: #fff5f5; }
 
     .toolbar {
       display: flex;
@@ -112,15 +136,16 @@
 
 <header>
   <div>
-    <h1>Shell TDS Extractor</h1>
-    <span>Tehnilistest andmelehtedest SKU-de eraldamine</span>
+    <h1 x-text="t.title"></h1>
+    <span x-text="t.subtitle"></span>
   </div>
+  <button class="lang-toggle" @click="cycleLang()" x-text="lang.toUpperCase()"></button>
 </header>
 
 <main>
   <!-- Upload -->
   <div class="card">
-    <h2>Laadi üles PDF</h2>
+    <h2 x-text="t.uploadTitle"></h2>
     <div
       class="drop-zone"
       :class="{ dragover: dragging }"
@@ -130,33 +155,73 @@
       @drop.prevent="onDrop($event)"
     >
       <div class="icon">📄</div>
-      <p>Lohista PDF-id siia või klõpsa valimiseks</p>
-      <div class="filename" x-text="files.length ? files.length + ' fail(i) valitud' : ''"></div>
-      <ul x-show="files.length" style="text-align:left;margin-top:8px;font-size:0.82rem;color:#555;list-style:none;padding:0">
-        <template x-for="f in files" :key="f.name"><li x-text="f.name"></li></template>
+      <p x-text="t.dropzone"></p>
+      <ul class="file-list" x-show="files.length">
+        <template x-for="f in files" :key="f.name"><li x-text="'• ' + f.name"></li></template>
       </ul>
       <input type="file" accept=".pdf" multiple x-ref="fileInput" @change="onFileChange($event)">
     </div>
-    <button class="btn" :disabled="!files.length || uploading" @click="submit()">
-      <span x-show="!uploading">Saada</span>
-      <span x-show="uploading">Töötleb...</span>
-    </button>
+    <button class="btn" :disabled="!files.length || uploading" @click="submit()" x-text="uploading ? t.sending : t.send"></button>
     <div class="status" :class="statusClass" x-text="statusMsg"></div>
   </div>
 
-  <!-- Results -->
+  <!-- Results after upload -->
+  <div class="card" x-show="newRows.length || uploadFailed">
+    <h2 x-text="t.detectedTitle"></h2>
+    <div class="results-grid">
+      <template x-for="row in newRows" :key="row.id">
+        <div class="result-card" :class="{ failed: !row.Tootenimi }">
+          <div class="product-name" x-text="row.Tootenimi || t.unknownProduct"></div>
+          <div class="field-row">
+            <span class="field-label" x-text="t.fields.viscosity + ':'"></span>
+            <span class="field-value" :class="{ missing: !row.Viscosity }" x-text="row.Viscosity || '—'"></span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">API:</span>
+            <span class="field-value" :class="{ missing: !row.API }" x-text="row.API || '—'"></span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">ACEA:</span>
+            <span class="field-value" :class="{ missing: !row.ACEA }" x-text="row.ACEA || '—'"></span>
+          </div>
+          <div class="field-row">
+            <span class="field-label" x-text="t.fields.fuel + ':'"></span>
+            <span class="field-value" :class="{ missing: !row.fuelcompatibility }" x-text="row.fuelcompatibility || '—'"></span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">SKU EE:</span>
+            <span class="field-value" :class="{ missing: !row.SKU_EE }" x-text="row.SKU_EE || '—'"></span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">SKU LV:</span>
+            <span class="field-value" :class="{ missing: !row.SKU_LV }" x-text="row.SKU_LV || '—'"></span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">SKU LT:</span>
+            <span class="field-value" :class="{ missing: !row.SKU_LT }" x-text="row.SKU_LT || '—'"></span>
+          </div>
+        </div>
+      </template>
+      <div x-show="uploadFailed" class="result-card failed">
+        <div class="product-name" x-text="t.detectionFailed"></div>
+        <p style="font-size:0.85rem;color:#555;margin-top:4px" x-text="t.detectionFailedDesc"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results table -->
   <div class="card">
-    <h2>Tulemused</h2>
+    <h2 x-text="t.resultsTitle"></h2>
     <div class="toolbar">
-      <input type="text" placeholder="Otsi toodet..." x-model="search">
-      <button class="btn-outline" @click="loadRows()">&#x21bb; Uuenda</button>
-      <span class="count" x-show="rows.length" x-text="filteredRows.length + ' / ' + rows.length + ' toodet'"></span>
+      <input type="text" :placeholder="t.search" x-model="search">
+      <button class="btn-outline" @click="loadRows()">&#x21bb; <span x-text="t.refresh"></span></button>
+      <span class="count" x-show="rows.length" x-text="filteredRows.length + ' / ' + rows.length + ' ' + t.products"></span>
     </div>
     <table>
       <thead>
         <tr>
-          <th>Tootenimi</th>
-          <th>Viscosity</th>
+          <th x-text="t.fields.product"></th>
+          <th x-text="t.fields.viscosity"></th>
           <th>ACEA</th>
           <th>API</th>
           <th>SKU EE</th>
@@ -167,18 +232,18 @@
       </thead>
       <tbody>
         <template x-if="filteredRows.length === 0">
-          <tr><td colspan="8" class="empty">Andmed puuduvad</td></tr>
+          <tr><td colspan="8" class="empty" x-text="t.noData"></td></tr>
         </template>
         <template x-for="row in filteredRows" :key="row.id">
           <tr>
-            <td x-text="row.Tootenimi || row.title || '—'"></td>
-            <td x-text="row.Viscosity || row.viscosity || '—'"></td>
-            <td x-text="row.ACEA || row.acea || '—'"></td>
-            <td x-text="row.API || row.api || '—'"></td>
-            <td class="sku" x-text="row.SKU_EE || row.sku_ee || '—'"></td>
-            <td class="sku" x-text="row.SKU_LV || row.sku_lv || '—'"></td>
-            <td class="sku" x-text="row.SKU_LT || row.sku_lt || '—'"></td>
-            <td x-text="row.SAPS || row.saps || '—'"></td>
+            <td x-text="row.Tootenimi || '—'"></td>
+            <td x-text="row.Viscosity || '—'"></td>
+            <td x-text="row.ACEA || '—'"></td>
+            <td x-text="row.API || '—'"></td>
+            <td class="sku" x-text="row.SKU_EE || '—'"></td>
+            <td class="sku" x-text="row.SKU_LV || '—'"></td>
+            <td class="sku" x-text="row.SKU_LT || '—'"></td>
+            <td x-text="row.SAPS || '—'"></td>
           </tr>
         </template>
       </tbody>
@@ -187,24 +252,105 @@
 </main>
 
 <script>
+const translations = {
+  et: {
+    title: 'Shell TDS Extractor',
+    subtitle: 'Tehnilistest andmelehtedest SKU-de eraldamine',
+    uploadTitle: 'Laadi üles PDF',
+    dropzone: 'Lohista PDF-id siia või klõpsa valimiseks',
+    send: 'Saada',
+    sending: 'Töötleb...',
+    detectedTitle: 'Tuvastatud andmed',
+    resultsTitle: 'Tulemused',
+    search: 'Otsi toodet...',
+    refresh: 'Uuenda',
+    products: 'toodet',
+    noData: 'Andmed puuduvad',
+    unknownProduct: 'Toode tuvastamata',
+    detectionFailed: 'Tuvastus ebaõnnestus',
+    detectionFailedDesc: 'PDF-i töötlemine ebaõnnestus. Arendaja on teavitatud.',
+    fields: { product: 'Tootenimi', viscosity: 'Viskoossus', fuel: 'Kütus' }
+  },
+  lv: {
+    title: 'Shell TDS Extractor',
+    subtitle: 'SKU iegūšana no tehnisko datu lapām',
+    uploadTitle: 'Augšupielādēt PDF',
+    dropzone: 'Velciet PDF šeit vai noklikšķiniet, lai atlasītu',
+    send: 'Nosūtīt',
+    sending: 'Apstrādā...',
+    detectedTitle: 'Atklātie dati',
+    resultsTitle: 'Rezultāti',
+    search: 'Meklēt produktu...',
+    refresh: 'Atjaunināt',
+    products: 'produkti',
+    noData: 'Datu nav',
+    unknownProduct: 'Produkts nav atklāts',
+    detectionFailed: 'Atklāšana neizdevās',
+    detectionFailedDesc: 'PDF apstrāde neizdevās. Izstrādātājs ir informēts.',
+    fields: { product: 'Produkta nosaukums', viscosity: 'Viskozitāte', fuel: 'Degviela' }
+  },
+  lt: {
+    title: 'Shell TDS Extractor',
+    subtitle: 'SKU ištraukimas iš techninių duomenų lapų',
+    uploadTitle: 'Įkelti PDF',
+    dropzone: 'Vilkite PDF čia arba spustelėkite pasirinkti',
+    send: 'Siųsti',
+    sending: 'Apdoroja...',
+    detectedTitle: 'Aptikti duomenys',
+    resultsTitle: 'Rezultatai',
+    search: 'Ieškoti produkto...',
+    refresh: 'Atnaujinti',
+    products: 'produktai',
+    noData: 'Duomenų nėra',
+    unknownProduct: 'Produktas neaptiktas',
+    detectionFailed: 'Aptikimas nepavyko',
+    detectionFailedDesc: 'PDF apdorojimas nepavyko. Kūrėjas informuotas.',
+    fields: { product: 'Produkto pavadinimas', viscosity: 'Klampumas', fuel: 'Kuras' }
+  },
+  en: {
+    title: 'Shell TDS Extractor',
+    subtitle: 'SKU extraction from Technical Data Sheets',
+    uploadTitle: 'Upload PDF',
+    dropzone: 'Drag PDFs here or click to select',
+    send: 'Submit',
+    sending: 'Processing...',
+    detectedTitle: 'Detected Data',
+    resultsTitle: 'Results',
+    search: 'Search product...',
+    refresh: 'Refresh',
+    products: 'products',
+    noData: 'No data available',
+    unknownProduct: 'Product not detected',
+    detectionFailed: 'Detection failed',
+    detectionFailedDesc: 'PDF processing failed. Developer has been notified.',
+    fields: { product: 'Product name', viscosity: 'Viscosity', fuel: 'Fuel' }
+  }
+};
+
 function app() {
   return {
+    lang: 'et',
     files: [],
     dragging: false,
     uploading: false,
     statusMsg: '',
     statusClass: '',
     rows: [],
+    newRows: [],
+    uploadFailed: false,
     search: '',
-    refreshTimer: null,
+
+    get t() { return translations[this.lang]; },
+
+    cycleLang() {
+      const langs = ['et', 'lv', 'lt', 'en'];
+      this.lang = langs[(langs.indexOf(this.lang) + 1) % langs.length];
+    },
 
     get filteredRows() {
       const q = this.search.toLowerCase().trim();
       if (!q) return this.rows;
-      return this.rows.filter(r => {
-        const name = (r.Tootenimi || r.title || '').toLowerCase();
-        return name.includes(q);
-      });
+      return this.rows.filter(r => (r.Tootenimi || '').toLowerCase().includes(q));
     },
 
     onFileChange(e) {
@@ -219,9 +365,13 @@ function app() {
     async submit() {
       if (!this.files.length) return;
       this.uploading = true;
+      this.newRows = [];
+      this.uploadFailed = false;
+      const maxId = this.rows.length ? Math.max(...this.rows.map(r => r.id || 0)) : 0;
       let ok = 0, fail = 0;
+
       for (let i = 0; i < this.files.length; i++) {
-        this.statusMsg = `Saadan ${i + 1}/${this.files.length}: ${this.files[i].name}`;
+        this.statusMsg = `${i + 1}/${this.files.length}: ${this.files[i].name}`;
         this.statusClass = 'info';
         const form = new FormData();
         form.append('fail', this.files[i]);
@@ -230,12 +380,60 @@ function app() {
           ok++;
         } catch (e) {
           fail++;
+          this.notifyError(`Üleslaadimise viga: ${this.files[i].name}`, e.message);
         }
       }
+
       this.uploading = false;
-      this.statusMsg = `Valmis! ${ok} faili saadetud${fail ? ', ' + fail + ' ebaõnnestus' : ''}. Tabel uueneb 30 sekundi pärast.`;
-      this.statusClass = fail ? 'err' : 'ok';
-      this.refreshTimer = setTimeout(() => this.loadRows(), 30000);
+      if (ok === 0) {
+        this.statusMsg = this.t.detectionFailed;
+        this.statusClass = 'err';
+        this.uploadFailed = true;
+        return;
+      }
+
+      this.statusMsg = this.lang === 'et'
+        ? `Saadetud ${ok}/${this.files.length}. Ootan tulemusi...`
+        : `Sent ${ok}/${this.files.length}. Waiting for results...`;
+      this.statusClass = 'info';
+
+      await this.pollForResults(maxId, ok);
+    },
+
+    async pollForResults(maxId, expectedCount) {
+      const deadline = Date.now() + 90000;
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 5000));
+        await this.loadRows();
+        const found = this.rows.filter(r => (r.id || 0) > maxId);
+        if (found.length >= expectedCount) {
+          this.newRows = found;
+          const failed = found.filter(r => !r.Tootenimi);
+          if (failed.length) {
+            this.uploadFailed = true;
+            failed.forEach(r => this.notifyError('Tuvastus ebaõnnestus', `Rida ID ${r.id} — Tootenimi tühi`));
+          }
+          this.statusMsg = this.lang === 'et'
+            ? `Valmis! ${found.length} toode(t) töödeldud.`
+            : `Done! ${found.length} product(s) processed.`;
+          this.statusClass = found.some(r => !r.Tootenimi) ? 'err' : 'ok';
+          return;
+        }
+      }
+      this.uploadFailed = true;
+      this.statusMsg = this.t.detectionFailed;
+      this.statusClass = 'err';
+      this.notifyError('TDS tuvastus aegus', `${expectedCount} faili saadeti aga tulemusi ei leitud 90 sekundi jooksul.`);
+    },
+
+    async notifyError(subject, text) {
+      try {
+        await fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subject, text })
+        });
+      } catch (_) {}
     },
 
     async loadRows() {
