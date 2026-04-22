@@ -16,7 +16,7 @@ The Shell TDS Extractor reads PDF Technical Data Sheets and automatically extrac
 - OEM approvals
 - SKU codes for EE, LV and LT markets (looked up from product XML catalogues)
 
-Extracted data is stored in a database and will be pushed to **pim.jungent.eu** for review before publishing to the Magento stores:
+Extracted data is stored in a database and will be pushed to **pim.jungent.eu** for review before publishing to the Magento stores — *planned after TDS extractor works as expected.*
 
 | Market | Store |
 |--------|-------|
@@ -76,6 +76,12 @@ Extracted data is stored in a database and will be pushed to **pim.jungent.eu** 
 **Upload fails immediately**  
 → File must be a PDF under 20 MB  
 → Check your internet connection
+
+---
+
+## Reporting Issues
+
+Use the **Feedback** form at the bottom of tds.jungent.eu — describe what happened, which product you tested, and what was missing or incorrect. For screenshots, attach them to a follow-up email to **kait@jungent.eu**.
 
 ---
 
