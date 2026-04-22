@@ -246,12 +246,12 @@
         <template x-for="row in filteredRows" :key="row.id">
           <tr>
             <td x-text="row.Tootenimi || '—'"></td>
-            <td x-text="row.short_description || '—'"></td>
+            <td x-text="row.Short_description || '—'"></td>
             <td x-text="row.Viscosity || '—'"></td>
             <td x-text="row.ACEA || '—'"></td>
             <td x-text="row.API || '—'"></td>
             <td x-text="row.SAPS || '—'"></td>
-            <td x-text="row.oem || '—'"></td>
+            <td x-text="row.OEM || '—'"></td>
             <td class="sku" x-text="row.SKU_EE || '—'"></td>
             <td class="sku" x-text="row.SKU_LV || '—'"></td>
             <td class="sku" x-text="row.SKU_LT || '—'"></td>
