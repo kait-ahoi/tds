@@ -228,29 +228,33 @@
       <thead>
         <tr>
           <th x-text="t.fields.product"></th>
+          <th x-text="t.fields.shortDesc"></th>
           <th x-text="t.fields.viscosity"></th>
           <th>ACEA</th>
           <th>API</th>
+          <th>SAPS</th>
+          <th>OEM</th>
           <th>SKU EE</th>
           <th>SKU LV</th>
           <th>SKU LT</th>
-          <th>SAPS</th>
         </tr>
       </thead>
       <tbody>
         <template x-if="filteredRows.length === 0">
-          <tr><td colspan="8" class="empty" x-text="t.noData"></td></tr>
+          <tr><td colspan="10" class="empty" x-text="t.noData"></td></tr>
         </template>
         <template x-for="row in filteredRows" :key="row.id">
           <tr>
             <td x-text="row.Tootenimi || '—'"></td>
+            <td x-text="row.short_description || '—'"></td>
             <td x-text="row.Viscosity || '—'"></td>
             <td x-text="row.ACEA || '—'"></td>
             <td x-text="row.API || '—'"></td>
+            <td x-text="row.SAPS || '—'"></td>
+            <td x-text="row.oem || '—'"></td>
             <td class="sku" x-text="row.SKU_EE || '—'"></td>
             <td class="sku" x-text="row.SKU_LV || '—'"></td>
             <td class="sku" x-text="row.SKU_LT || '—'"></td>
-            <td x-text="row.SAPS || '—'"></td>
           </tr>
         </template>
       </tbody>
@@ -276,7 +280,7 @@ const translations = {
     unknownProduct: 'Toode tuvastamata',
     detectionFailed: 'Tuvastus ebaõnnestus',
     detectionFailedDesc: 'PDF-i töötlemine ebaõnnestus. Arendaja on teavitatud.',
-    fields: { product: 'Tootenimi', viscosity: 'Viskoossus', fuel: 'Kütus' }
+    fields: { shortDesc: 'Lühikirjeldus', product: 'Tootenimi', viscosity: 'Viskoossus', fuel: 'Kütus' }
   },
   lv: {
     title: 'Shell TDS Extractor',
@@ -294,7 +298,7 @@ const translations = {
     unknownProduct: 'Produkts nav atklāts',
     detectionFailed: 'Atklāšana neizdevās',
     detectionFailedDesc: 'PDF apstrāde neizdevās. Izstrādātājs ir informēts.',
-    fields: { product: 'Produkta nosaukums', viscosity: 'Viskozitāte', fuel: 'Degviela' }
+    fields: { shortDesc: 'Īss apraksts', product: 'Produkta nosaukums', viscosity: 'Viskozitāte', fuel: 'Degviela' }
   },
   lt: {
     title: 'Shell TDS Extractor',
@@ -312,7 +316,7 @@ const translations = {
     unknownProduct: 'Produktas neaptiktas',
     detectionFailed: 'Aptikimas nepavyko',
     detectionFailedDesc: 'PDF apdorojimas nepavyko. Kūrėjas informuotas.',
-    fields: { product: 'Produkto pavadinimas', viscosity: 'Klampumas', fuel: 'Kuras' }
+    fields: { shortDesc: 'Trumpas aprašymas', product: 'Produkto pavadinimas', viscosity: 'Klampumas', fuel: 'Kuras' }
   },
   en: {
     title: 'Shell TDS Extractor',
@@ -330,7 +334,7 @@ const translations = {
     unknownProduct: 'Product not detected',
     detectionFailed: 'Detection failed',
     detectionFailedDesc: 'PDF processing failed. Developer has been notified.',
-    fields: { product: 'Product name', viscosity: 'Viscosity', fuel: 'Fuel' }
+    fields: { shortDesc: 'Short description', product: 'Product name', viscosity: 'Viscosity', fuel: 'Fuel' }
   }
 };
 
