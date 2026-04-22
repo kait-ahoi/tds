@@ -130,11 +130,14 @@
       @drop.prevent="onDrop($event)"
     >
       <div class="icon">📄</div>
-      <p>Lohista PDF siia või klõpsa valimiseks</p>
-      <div class="filename" x-text="file ? file.name : ''"></div>
-      <input type="file" accept=".pdf" x-ref="fileInput" @change="onFileChange($event)">
+      <p>Lohista PDF-id siia või klõpsa valimiseks</p>
+      <div class="filename" x-text="files.length ? files.length + ' fail(i) valitud' : ''"></div>
+      <ul x-show="files.length" style="text-align:left;margin-top:8px;font-size:0.82rem;color:#555;list-style:none;padding:0">
+        <template x-for="f in files" :key="f.name"><li x-text="f.name"></li></template>
+      </ul>
+      <input type="file" accept=".pdf" multiple x-ref="fileInput" @change="onFileChange($event)">
     </div>
-    <button class="btn" :disabled="!file || uploading" @click="submit()">
+    <button class="btn" :disabled="!files.length || uploading" @click="submit()">
       <span x-show="!uploading">Saada</span>
       <span x-show="uploading">Töötleb...</span>
     </button>
@@ -186,7 +189,7 @@
 <script>
 function app() {
   return {
-    file: null,
+    files: [],
     dragging: false,
     uploading: false,
     statusMsg: '',
@@ -205,33 +208,34 @@ function app() {
     },
 
     onFileChange(e) {
-      this.file = e.target.files[0] || null;
+      this.files = Array.from(e.target.files).filter(f => f.type === 'application/pdf');
     },
 
     onDrop(e) {
       this.dragging = false;
-      const f = e.dataTransfer.files[0];
-      if (f && f.type === 'application/pdf') this.file = f;
+      this.files = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
     },
 
     async submit() {
-      if (!this.file) return;
+      if (!this.files.length) return;
       this.uploading = true;
-      this.statusMsg = 'Saadan...';
-      this.statusClass = 'info';
-      const form = new FormData();
-      form.append('fail', this.file);
-      try {
-        await fetch('/api/submit', { method: 'POST', body: form });
-        this.statusMsg = 'Valmis! Tabel uueneb 30 sekundi pärast.';
-        this.statusClass = 'ok';
-        this.refreshTimer = setTimeout(() => this.loadRows(), 30000);
-      } catch (e) {
-        this.statusMsg = 'Viga: ' + e.message;
-        this.statusClass = 'err';
-      } finally {
-        this.uploading = false;
+      let ok = 0, fail = 0;
+      for (let i = 0; i < this.files.length; i++) {
+        this.statusMsg = `Saadan ${i + 1}/${this.files.length}: ${this.files[i].name}`;
+        this.statusClass = 'info';
+        const form = new FormData();
+        form.append('fail', this.files[i]);
+        try {
+          await fetch('/api/submit', { method: 'POST', body: form });
+          ok++;
+        } catch (e) {
+          fail++;
+        }
       }
+      this.uploading = false;
+      this.statusMsg = `Valmis! ${ok} faili saadetud${fail ? ', ' + fail + ' ebaõnnestus' : ''}. Tabel uueneb 30 sekundi pärast.`;
+      this.statusClass = fail ? 'err' : 'ok';
+      this.refreshTimer = setTimeout(() => this.loadRows(), 30000);
     },
 
     async loadRows() {
