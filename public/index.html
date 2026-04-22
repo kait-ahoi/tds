@@ -96,6 +96,32 @@
     .result-card .field-value.missing { color: #aaa; font-style: italic; }
     .result-card.failed { border-color: #f5c6c6; background: #fff5f5; }
 
+    details.help-card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 24px; }
+    details.help-card summary {
+      padding: 16px 24px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 1rem;
+      color: #DD1D21;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+    }
+    details.help-card summary::-webkit-details-marker { display: none; }
+    details.help-card summary::before { content: '▶'; font-size: 0.7rem; transition: transform 0.2s; }
+    details.help-card[open] summary::before { transform: rotate(90deg); }
+    .help-body { padding: 0 24px 24px; font-size: 0.88rem; color: #333; line-height: 1.6; }
+    .help-body h3 { font-size: 0.92rem; font-weight: 700; color: #DD1D21; margin: 16px 0 6px; }
+    .help-body table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+    .help-body th { background: #f5f5f5; text-align: left; padding: 6px 10px; font-size: 0.82rem; }
+    .help-body td { padding: 5px 10px; border-bottom: 1px solid #eee; font-size: 0.82rem; vertical-align: top; }
+    .help-body td:first-child { white-space: nowrap; font-weight: 600; }
+    .help-body ul { margin: 0 0 12px 18px; }
+    .help-body li { margin-bottom: 3px; }
+    .help-body .flow { font-family: monospace; background: #f5f5f5; border-radius: 4px; padding: 12px 16px; font-size: 0.82rem; line-height: 1.8; }
+
     .toolbar {
       display: flex;
       gap: 12px;
@@ -150,6 +176,44 @@
 </header>
 
 <main>
+  <!-- Help -->
+  <details class="help-card">
+    <summary>User Guide</summary>
+    <div class="help-body">
+      <h3>What This Tool Does</h3>
+      <p>Reads Shell Technical Data Sheet PDFs and extracts product specifications. SKU codes are looked up automatically from EE, LV and LT product catalogues. Extracted data flows to <strong>pim.jungent.eu</strong> and from there to the Magento stores.</p>
+      <div class="flow">Shell TDS PDF → tds.jungent.eu → n8n → pim.jungent.eu → pood.jungent.eu (EE) / shop.jungent.eu (LV) / store.jungent.eu (LT)</div>
+
+      <h3>How to Upload</h3>
+      <ul>
+        <li>Drag one or more Shell TDS PDFs into the upload area, or click to browse</li>
+        <li>Click <strong>Submit</strong> — files are processed one by one</li>
+        <li>Wait up to 90 seconds — result cards appear automatically</li>
+        <li>Review extracted data in the Results table</li>
+      </ul>
+
+      <h3>Result Columns</h3>
+      <table>
+        <tr><th>Column</th><th>Description</th></tr>
+        <tr><td>Product name</td><td>Full Shell product name</td></tr>
+        <tr><td>Short description</td><td>One-line description from the PDF</td></tr>
+        <tr><td>Viscosity</td><td>SAE viscosity grade</td></tr>
+        <tr><td>ACEA / API</td><td>European and American engine oil standards</td></tr>
+        <tr><td>SAPS</td><td>Low-SAPS or Mid-SAPS (blank if standard)</td></tr>
+        <tr><td>Fuel</td><td>Diesel / Gasoline / CNG/LNG etc.</td></tr>
+        <tr><td>OEM</td><td>OEM approvals listed in the PDF</td></tr>
+        <tr><td>SKU EE / LV / LT</td><td>Article codes per market</td></tr>
+      </table>
+
+      <h3>Troubleshooting</h3>
+      <ul>
+        <li><strong>No results after 90 s</strong> — confirm the file is a TDS (not a Safety Data Sheet); try one file at a time</li>
+        <li><strong>SKU fields empty</strong> — product name in PDF may differ from catalogue; report to administrator</li>
+        <li><strong>Upload fails</strong> — file must be a PDF under 20 MB</li>
+      </ul>
+    </div>
+  </details>
+
   <!-- Upload -->
   <div class="card">
     <h2 x-text="t.uploadTitle"></h2>
