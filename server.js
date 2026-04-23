@@ -6,6 +6,7 @@ const axios = require('axios');
 const path = require('path');
 const FormData = require('form-data');
 const nodemailer = require('nodemailer');
+const { PDFDocument } = require('pdf-lib');
 
 const app = express();
 app.use(compression());
@@ -17,6 +18,22 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }
 });
 
+async function splitPdf(buffer, pagesPerChunk = 4) {
+  const src = await PDFDocument.load(buffer);
+  const total = src.getPageCount();
+  if (total <= pagesPerChunk) return [buffer];
+  const chunks = [];
+  for (let start = 0; start < total; start += pagesPerChunk) {
+    const doc = await PDFDocument.create();
+    const end = Math.min(start + pagesPerChunk, total);
+    const indices = Array.from({ length: end - start }, (_, i) => start + i);
+    const pages = await doc.copyPagesFrom(src, indices);
+    pages.forEach(p => doc.addPage(p));
+    chunks.push(Buffer.from(await doc.save()));
+  }
+  return chunks;
+}
+
 const mailer = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,
@@ -26,13 +43,16 @@ const mailer = nodemailer.createTransport({
 
 app.post('/api/submit', upload.single('fail'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
-  const form = new FormData();
-  form.append('fail', req.file.buffer, {
-    filename: req.file.originalname,
-    contentType: 'application/pdf'
-  });
   try {
-    await axios.post(process.env.N8N_FORM_URL, form, { headers: form.getHeaders() });
+    const chunks = await splitPdf(req.file.buffer, 4);
+    for (const chunk of chunks) {
+      const form = new FormData();
+      form.append('fail', chunk, {
+        filename: req.file.originalname,
+        contentType: 'application/pdf'
+      });
+      await axios.post(process.env.N8N_FORM_URL, form, { headers: form.getHeaders() });
+    }
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

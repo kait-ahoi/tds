@@ -485,7 +485,11 @@ function app() {
         const form = new FormData();
         form.append('fail', this.files[i]);
         try {
-          await fetch('/api/submit', { method: 'POST', body: form });
+          const res = await fetch('/api/submit', { method: 'POST', body: form });
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+            throw new Error(body.error || `HTTP ${res.status}`);
+          }
           ok++;
         } catch (e) {
           fail++;
@@ -510,11 +514,18 @@ function app() {
     },
 
     async pollForResults(maxId, expectedCount) {
-      const deadline = Date.now() + 90000;
+      const start = Date.now();
+      const deadline = start + 90000;
       while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 5000));
         await this.loadRows();
         const found = this.rows.filter(r => (r.id || 0) > maxId);
+        const elapsed = Math.round((Date.now() - start) / 1000);
+        const hint = elapsed < 15
+          ? (this.lang === 'et' ? 'PDF töötlemisel...' : 'Processing PDF...')
+          : elapsed < 40
+          ? (this.lang === 'et' ? 'Andmeid ekstraheeritakse...' : 'Extracting data...')
+          : (this.lang === 'et' ? 'Lõpetab töötlemist...' : 'Finishing up...');
         if (found.length >= expectedCount) {
           this.newRows = found;
           const failed = found.filter(r => !r.Tootenimi);
@@ -528,6 +539,10 @@ function app() {
           this.statusClass = found.some(r => !r.Tootenimi) ? 'err' : 'ok';
           return;
         }
+        this.statusMsg = this.lang === 'et'
+          ? `${hint} (${found.length} leitud, ootan veel...)`
+          : `${hint} (${found.length} found, waiting...)`;
+        this.statusClass = 'info';
       }
       this.uploadFailed = true;
       this.statusMsg = this.t.detectionFailed;
