@@ -19,7 +19,7 @@ const upload = multer({
 });
 
 async function splitPdf(buffer, pagesPerChunk = 4) {
-  const src = await PDFDocument.load(buffer);
+  const src = await PDFDocument.load(buffer, { ignoreEncryption: true });
   const total = src.getPageCount();
   if (total <= pagesPerChunk) return [buffer];
   const chunks = [];
