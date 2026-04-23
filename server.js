@@ -22,16 +22,20 @@ async function splitPdf(buffer, pagesPerChunk = 4) {
   const src = await PDFDocument.load(buffer, { ignoreEncryption: true });
   const total = src.getPageCount();
   if (total <= pagesPerChunk) return [buffer];
-  const chunks = [];
-  for (let start = 0; start < total; start += pagesPerChunk) {
-    const doc = await PDFDocument.create();
-    const end = Math.min(start + pagesPerChunk, total);
-    const indices = Array.from({ length: end - start }, (_, i) => start + i);
-    const pages = await doc.copyPagesFrom(src, indices);
-    pages.forEach(p => doc.addPage(p));
-    chunks.push(Buffer.from(await doc.save()));
+  try {
+    const chunks = [];
+    for (let start = 0; start < total; start += pagesPerChunk) {
+      const doc = await PDFDocument.create();
+      const end = Math.min(start + pagesPerChunk, total);
+      const indices = Array.from({ length: end - start }, (_, i) => start + i);
+      const pages = await doc.copyPagesFrom(src, indices);
+      pages.forEach(p => doc.addPage(p));
+      chunks.push(Buffer.from(await doc.save()));
+    }
+    return chunks;
+  } catch {
+    return [buffer];
   }
-  return chunks;
 }
 
 const mailer = nodemailer.createTransport({
@@ -55,6 +59,7 @@ app.post('/api/submit', upload.single('fail'), async (req, res) => {
     }
     res.json({ ok: true });
   } catch (e) {
+    console.error('/api/submit error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
