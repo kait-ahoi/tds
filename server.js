@@ -49,9 +49,10 @@ app.post('/api/submit', upload.single('fail'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
   try {
     const chunks = await splitPdf(req.file.buffer, 4);
-    for (const chunk of chunks) {
+    for (let i = 0; i < chunks.length; i++) {
+      if (i > 0) await new Promise(r => setTimeout(r, 8000));
       const form = new FormData();
-      form.append('fail', chunk, {
+      form.append('fail', chunks[i], {
         filename: req.file.originalname,
         contentType: 'application/pdf'
       });

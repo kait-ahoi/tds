@@ -515,7 +515,7 @@ function app() {
 
     async pollForResults(maxId, expectedCount) {
       const start = Date.now();
-      const deadline = start + 90000;
+      const deadline = start + 180000;
       while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 5000));
         await this.loadRows();
@@ -547,7 +547,7 @@ function app() {
       this.uploadFailed = true;
       this.statusMsg = this.t.detectionFailed;
       this.statusClass = 'err';
-      this.notifyError('TDS tuvastus aegus', `${expectedCount} faili saadeti aga tulemusi ei leitud 90 sekundi jooksul.`);
+      this.notifyError('TDS tuvastus aegus', `${expectedCount} faili saadeti aga tulemusi ei leitud 3 minuti jooksul.`);
     },
 
     async notifyError(subject, text) {
