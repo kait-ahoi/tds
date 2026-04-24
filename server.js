@@ -42,12 +42,13 @@ async function splitPdf(buffer, pagesPerChunk = 4) {
   }
 }
 
-async function sendToN8n(buffer, originalname) {
+async function sendToN8n(buffer, originalname, savedFilename = '') {
   const chunks = await splitPdf(buffer, 4);
   for (let i = 0; i < chunks.length; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, 8000));
     const form = new FormData();
     form.append('fail', chunks[i], { filename: originalname, contentType: 'application/pdf' });
+    if (savedFilename) form.append('saved_filename', savedFilename);
     await axios.post(process.env.N8N_FORM_URL, form, { headers: form.getHeaders() });
   }
 }
@@ -64,7 +65,7 @@ app.post('/api/submit', upload.single('fail'), async (req, res) => {
   try {
     const safeFilename = `${Date.now()}_${req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
     fs.writeFileSync(path.join(UPLOAD_DIR, safeFilename), req.file.buffer);
-    await sendToN8n(req.file.buffer, req.file.originalname);
+    await sendToN8n(req.file.buffer, req.file.originalname, safeFilename);
     res.json({ ok: true, filename: safeFilename });
   } catch (e) {
     console.error('/api/submit error:', e.message);
@@ -77,7 +78,7 @@ app.post('/api/rerun/:filename', async (req, res) => {
   if (!fs.existsSync(file)) return res.status(404).json({ error: 'File not found' });
   try {
     const buffer = fs.readFileSync(file);
-    await sendToN8n(buffer, path.basename(file));
+    await sendToN8n(buffer, path.basename(file), path.basename(file));
     res.json({ ok: true });
   } catch (e) {
     console.error('/api/rerun error:', e.message);
