@@ -4,6 +4,7 @@ const compression = require('compression');
 const multer = require('multer');
 const axios = require('axios');
 const path = require('path');
+const fs = require('fs');
 const FormData = require('form-data');
 const nodemailer = require('nodemailer');
 const { PDFDocument } = require('pdf-lib');
@@ -12,6 +13,9 @@ const app = express();
 app.use(compression());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR || '/app/uploads';
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -38,6 +42,16 @@ async function splitPdf(buffer, pagesPerChunk = 4) {
   }
 }
 
+async function sendToN8n(buffer, originalname) {
+  const chunks = await splitPdf(buffer, 4);
+  for (let i = 0; i < chunks.length; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, 8000));
+    const form = new FormData();
+    form.append('fail', chunks[i], { filename: originalname, contentType: 'application/pdf' });
+    await axios.post(process.env.N8N_FORM_URL, form, { headers: form.getHeaders() });
+  }
+}
+
 const mailer = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,
@@ -48,21 +62,35 @@ const mailer = nodemailer.createTransport({
 app.post('/api/submit', upload.single('fail'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
   try {
-    const chunks = await splitPdf(req.file.buffer, 4);
-    for (let i = 0; i < chunks.length; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 8000));
-      const form = new FormData();
-      form.append('fail', chunks[i], {
-        filename: req.file.originalname,
-        contentType: 'application/pdf'
-      });
-      await axios.post(process.env.N8N_FORM_URL, form, { headers: form.getHeaders() });
-    }
-    res.json({ ok: true });
+    const safeFilename = `${Date.now()}_${req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+    fs.writeFileSync(path.join(UPLOAD_DIR, safeFilename), req.file.buffer);
+    await sendToN8n(req.file.buffer, req.file.originalname);
+    res.json({ ok: true, filename: safeFilename });
   } catch (e) {
     console.error('/api/submit error:', e.message);
     res.status(500).json({ error: e.message });
   }
+});
+
+app.post('/api/rerun/:filename', async (req, res) => {
+  const file = path.join(UPLOAD_DIR, path.basename(req.params.filename));
+  if (!fs.existsSync(file)) return res.status(404).json({ error: 'File not found' });
+  try {
+    const buffer = fs.readFileSync(file);
+    await sendToN8n(buffer, path.basename(file));
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('/api/rerun error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/pdf/:filename', (req, res) => {
+  const file = path.join(UPLOAD_DIR, path.basename(req.params.filename));
+  if (!fs.existsSync(file)) return res.status(404).end();
+  res.setHeader('Content-Disposition', `attachment; filename="${path.basename(file)}"`);
+  res.setHeader('Content-Type', 'application/pdf');
+  fs.createReadStream(file).pipe(res);
 });
 
 app.get('/api/rows', async (req, res) => {

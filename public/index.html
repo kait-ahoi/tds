@@ -315,11 +315,12 @@
           <th>SKU EE</th>
           <th>SKU LV</th>
           <th>SKU LT</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
         <template x-if="filteredRows.length === 0">
-          <tr><td colspan="11" class="empty" x-text="t.noData"></td></tr>
+          <tr><td colspan="12" class="empty" x-text="t.noData"></td></tr>
         </template>
         <template x-for="row in filteredRows" :key="row.id">
           <tr>
@@ -334,6 +335,7 @@
             <td class="sku" x-text="row.SKU_EE || '—'"></td>
             <td class="sku" x-text="row.SKU_LV || '—'"></td>
             <td class="sku" x-text="row.SKU_LT || '—'"></td>
+            <td><button x-show="row.pdf_filename" @click="rerun(row.pdf_filename)" style="font-size:0.75rem;padding:2px 8px;cursor:pointer;">↺</button></td>
           </tr>
         </template>
       </tbody>
@@ -537,6 +539,7 @@ function app() {
             ? `Valmis! ${found.length} toode(t) töödeldud.`
             : `Done! ${found.length} product(s) processed.`;
           this.statusClass = found.some(r => !r.Tootenimi) ? 'err' : 'ok';
+          this.files = [];
           return;
         }
         this.statusMsg = this.lang === 'et'
@@ -558,6 +561,26 @@ function app() {
           body: JSON.stringify({ subject, text })
         });
       } catch (_) {}
+    },
+
+    async rerun(filename) {
+      const maxId = this.rows.length ? Math.max(...this.rows.map(r => r.id || 0)) : 0;
+      this.statusMsg = this.lang === 'et' ? 'Uuesti töötlemine...' : 'Re-running...';
+      this.statusClass = 'info';
+      this.uploadFailed = false;
+      this.newRows = [];
+      try {
+        const res = await fetch(`/api/rerun/${encodeURIComponent(filename)}`, { method: 'POST' });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+          throw new Error(body.error || `HTTP ${res.status}`);
+        }
+        await this.pollForResults(maxId, 1);
+      } catch (e) {
+        this.statusMsg = this.lang === 'et' ? 'Tuvastus ebaõnnestus' : 'Detection failed';
+        this.statusClass = 'err';
+        this.notifyError('Re-run viga', e.message);
+      }
     },
 
     async loadRows() {
