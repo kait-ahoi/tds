@@ -564,7 +564,8 @@ function app() {
       try {
         const res = await fetch('/api/rows');
         const data = await res.json();
-        this.rows = Array.isArray(data) ? data : (data.rows || data.data || []);
+        const rows = Array.isArray(data) ? data : (data.rows || data.data || []);
+        this.rows = rows.sort((a, b) => (b.id || 0) - (a.id || 0));
       } catch (e) {
         console.error('Ridade laadimine ebaõnnestus', e);
       }
