@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const FormData = require('form-data');
 const nodemailer = require('nodemailer');
-const { PDFDocument } = require('pdf-lib');
+const pdfParse = require('pdf-parse');
 
 const app = express();
 app.use(compression());
@@ -22,34 +22,39 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }
 });
 
-async function splitPdf(buffer, pagesPerChunk = 4) {
-  const src = await PDFDocument.load(buffer, { ignoreEncryption: true });
-  const total = src.getPageCount();
-  if (total <= pagesPerChunk) return [buffer];
-  try {
-    const chunks = [];
-    for (let start = 0; start < total; start += pagesPerChunk) {
-      const doc = await PDFDocument.create();
-      const end = Math.min(start + pagesPerChunk, total);
-      const indices = Array.from({ length: end - start }, (_, i) => start + i);
-      const pages = await doc.copyPagesFrom(src, indices);
-      pages.forEach(p => doc.addPage(p));
-      chunks.push(Buffer.from(await doc.save()));
+function splitByProduct(text) {
+  const markers = ['technical data sheet', 'techninių duomenų lapas'];
+  const lower = text.toLowerCase();
+  const positions = [];
+  for (const marker of markers) {
+    let idx = 0;
+    while ((idx = lower.indexOf(marker, idx)) !== -1) {
+      positions.push(idx);
+      idx += marker.length;
     }
-    return chunks;
-  } catch {
-    return [buffer];
   }
+  positions.sort((a, b) => a - b);
+  if (positions.length <= 1) return [text];
+  const sections = [];
+  for (let i = 0; i < positions.length; i++) {
+    const start = positions[i];
+    const end = i + 1 < positions.length ? positions[i + 1] : text.length;
+    const section = text.substring(start, end).trim();
+    if (section.length > 100) sections.push(section);
+  }
+  return sections.length ? sections : [text];
 }
 
 async function sendToN8n(buffer, originalname, savedFilename = '') {
-  const chunks = await splitPdf(buffer, 4);
-  for (let i = 0; i < chunks.length; i++) {
-    if (i > 0) await new Promise(r => setTimeout(r, 8000));
+  const { text } = await pdfParse(buffer);
+  const sections = splitByProduct(text);
+  for (let i = 0; i < sections.length; i++) {
     const form = new FormData();
-    form.append('fail', chunks[i], { filename: originalname, contentType: 'application/pdf' });
+    form.append('pdf_text', sections[i]);
+    form.append('original_filename', originalname);
     if (savedFilename) form.append('saved_filename', savedFilename);
     await axios.post(process.env.N8N_FORM_URL, form, { headers: form.getHeaders() });
+    if (i < sections.length - 1) await new Promise(r => setTimeout(r, 3000));
   }
 }
 

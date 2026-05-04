@@ -201,7 +201,7 @@
       <ul>
         <li>Drag one or more Shell TDS PDFs into the upload area, or click to browse</li>
         <li>Click <strong>Submit</strong> — files are processed one by one</li>
-        <li>Wait up to 90 seconds — result cards appear automatically</li>
+        <li>Wait for results — single-product PDFs take ~60 s; a 48-page bundle (24 products) can take up to 20 minutes — leave the browser tab open</li>
         <li>Review extracted data in the Results table</li>
       </ul>
 
@@ -517,16 +517,18 @@ function app() {
 
     async pollForResults(maxId, expectedCount) {
       const start = Date.now();
-      const deadline = start + 180000;
+      const deadline = start + 2100000;
       while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 5000));
         await this.loadRows();
         const found = this.rows.filter(r => (r.id || 0) > maxId);
         const elapsed = Math.round((Date.now() - start) / 1000);
-        const hint = elapsed < 15
+        const hint = elapsed < 30
           ? (this.lang === 'et' ? 'PDF töötlemisel...' : 'Processing PDF...')
-          : elapsed < 40
+          : elapsed < 120
           ? (this.lang === 'et' ? 'Andmeid ekstraheeritakse...' : 'Extracting data...')
+          : elapsed < 300
+          ? (this.lang === 'et' ? 'Suur fail — palun oota...' : 'Large file — please wait...')
           : (this.lang === 'et' ? 'Lõpetab töötlemist...' : 'Finishing up...');
         if (found.length >= expectedCount) {
           this.newRows = found;
