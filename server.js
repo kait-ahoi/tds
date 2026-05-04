@@ -22,9 +22,16 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }
 });
 
+function normalizeText(text) {
+  return text
+    .replace(/ﬀ/g, 'ff').replace(/ﬁ/g, 'fi').replace(/ﬂ/g, 'fl')
+    .replace(/ﬃ/g, 'ffi').replace(/ﬄ/g, 'ffl')
+    .toLowerCase();
+}
+
 function splitByProduct(text) {
   const markers = ['technical data sheet', 'techninių duomenų lapas'];
-  const lower = text.toLowerCase();
+  const lower = normalizeText(text);
   const positions = [];
   for (const marker of markers) {
     let idx = 0;
@@ -48,6 +55,7 @@ function splitByProduct(text) {
 async function sendToN8n(buffer, originalname, savedFilename = '') {
   const { text } = await pdfParse(buffer);
   const sections = splitByProduct(text);
+  console.log(`[sendToN8n] ${originalname}: ${sections.length} section(s) found`);
   for (let i = 0; i < sections.length; i++) {
     const form = new FormData();
     form.append('pdf_text', sections[i]);
