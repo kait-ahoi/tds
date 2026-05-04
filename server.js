@@ -7,7 +7,6 @@ const path = require('path');
 const fs = require('fs');
 const FormData = require('form-data');
 const nodemailer = require('nodemailer');
-const pdfParse = require('pdf-parse');
 
 const app = express();
 app.use(compression());
@@ -22,48 +21,11 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }
 });
 
-function normalizeText(text) {
-  return text
-    .replace(/ﬀ/g, 'ff').replace(/ﬁ/g, 'fi').replace(/ﬂ/g, 'fl')
-    .replace(/ﬃ/g, 'ffi').replace(/ﬄ/g, 'ffl')
-    .toLowerCase();
-}
-
-function splitByProduct(text) {
-  const markers = ['technical data sheet', 'techninių duomenų lapas'];
-  const lower = normalizeText(text);
-  const positions = [];
-  for (const marker of markers) {
-    let idx = 0;
-    while ((idx = lower.indexOf(marker, idx)) !== -1) {
-      positions.push(idx);
-      idx += marker.length;
-    }
-  }
-  positions.sort((a, b) => a - b);
-  if (positions.length <= 1) return [text];
-  const sections = [];
-  for (let i = 0; i < positions.length; i++) {
-    const start = positions[i];
-    const end = i + 1 < positions.length ? positions[i + 1] : text.length;
-    const section = text.substring(start, end).trim();
-    if (section.length > 100) sections.push(section);
-  }
-  return sections.length ? sections : [text];
-}
-
 async function sendToN8n(buffer, originalname, savedFilename = '') {
-  const { text } = await pdfParse(buffer);
-  const sections = splitByProduct(text);
-  console.log(`[sendToN8n] ${originalname}: ${sections.length} section(s) found`);
-  for (let i = 0; i < sections.length; i++) {
-    const form = new FormData();
-    form.append('pdf_text', sections[i]);
-    form.append('original_filename', originalname);
-    if (savedFilename) form.append('saved_filename', savedFilename);
-    await axios.post(process.env.N8N_FORM_URL, form, { headers: form.getHeaders() });
-    if (i < sections.length - 1) await new Promise(r => setTimeout(r, 3000));
-  }
+  const form = new FormData();
+  form.append('fail', buffer, { filename: originalname, contentType: 'application/pdf' });
+  if (savedFilename) form.append('saved_filename', savedFilename);
+  await axios.post(process.env.N8N_FORM_URL, form, { headers: form.getHeaders() });
 }
 
 const mailer = nodemailer.createTransport({
