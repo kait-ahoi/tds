@@ -125,6 +125,21 @@ app.post('/api/rerun/:filename', async (req, res) => {
   }
 });
 
+app.post('/api/pdf/rename', (req, res) => {
+  const { oldname, newname } = req.body;
+  if (!oldname || !newname) return res.status(400).json({ error: 'Missing params' });
+  const oldPath = path.join(UPLOAD_DIR, path.basename(oldname));
+  const newPath = path.join(UPLOAD_DIR, path.basename(newname));
+  if (!fs.existsSync(oldPath)) return res.json({ ok: true, skipped: 'not found' });
+  if (fs.existsSync(newPath)) return res.json({ ok: true, skipped: 'exists' });
+  try {
+    fs.renameSync(oldPath, newPath);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/pdf/:filename', (req, res) => {
   const file = path.join(UPLOAD_DIR, path.basename(req.params.filename));
   if (!fs.existsSync(file)) return res.status(404).end();
