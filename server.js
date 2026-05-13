@@ -70,7 +70,7 @@ async function splitPdfByProduct(buffer, baseFilename) {
 
 async function sendToN8n(buffer, originalname, savedFilename = '') {
   const form = new FormData();
-  form.append('fail', buffer, { filename: originalname, contentType: 'application/pdf' });
+  form.append('fail', buffer, { filename: savedFilename || originalname, contentType: 'application/pdf' });
   if (savedFilename) form.append('saved_filename', savedFilename);
   await axios.post(process.env.N8N_FORM_URL, form, { headers: form.getHeaders() });
 }
