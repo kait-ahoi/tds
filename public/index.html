@@ -172,6 +172,10 @@
     tbody td.sku { font-family: monospace; font-size: 0.82rem; color: #555; }
     .empty { text-align: center; padding: 40px; color: #999; }
     .count { font-size: 0.82rem; color: #888; margin-left: auto; }
+    .table-wrap { overflow-x: auto; }
+    thead th:last-child, tbody td:last-child { position: sticky; right: 0; background: inherit; box-shadow: -2px 0 4px rgba(0,0,0,0.06); }
+    thead th:last-child { background: #DD1D21; }
+    tbody tr:hover td:last-child { background: #fafafa; }
   </style>
 </head>
 <body x-data="app()" x-init="loadRows()">
@@ -301,6 +305,7 @@
       <button class="btn-outline" @click="loadRows()">&#x21bb; <span x-text="t.refresh"></span></button>
       <span class="count" x-show="rows.length" x-text="filteredRows.length + ' / ' + rows.length + ' ' + t.products"></span>
     </div>
+    <div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -343,6 +348,7 @@
         </template>
       </tbody>
     </table>
+    </div>
   </div>
 
   <!-- Feedback -->

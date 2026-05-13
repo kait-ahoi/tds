@@ -52,16 +52,23 @@ function extractProductNameFromText(text) {
 }
 
 async function splitPdfByProduct(buffer, baseFilename) {
-  const pageTexts = [];
-  await pdfParse(buffer, {
-    pagerender: function(pageData) {
-      return pageData.getTextContent().then(function(textContent) {
-        const text = textContent.items.map(i => i.str).join(' ');
-        pageTexts.push(text);
-        return text;
-      });
-    }
-  });
+  const srcDoc = await PDFDocument.load(buffer);
+  const totalPages = srcDoc.getPageCount();
+
+  // Extract text per page reliably by parsing each page individually
+  const pageTexts = new Array(totalPages).fill('');
+  for (let i = 0; i < totalPages; i++) {
+    try {
+      const pageDoc = await PDFDocument.create();
+      const [pg] = await pageDoc.copyPages(srcDoc, [i]);
+      pageDoc.addPage(pg);
+      const pageBuf = Buffer.from(await pageDoc.save());
+      const parsed = await pdfParse(pageBuf);
+      pageTexts[i] = parsed.text || '';
+    } catch(e) { /* leave empty */ }
+  }
+
+  console.log(`PDF pages scanned: ${totalPages}, non-empty: ${pageTexts.filter(t => t).length}`);
 
   const productStartPages = [];
   for (let i = 0; i < pageTexts.length; i++) {
@@ -71,12 +78,11 @@ async function splitPdfByProduct(buffer, baseFilename) {
     }
   }
 
+  console.log(`TDS markers found on pages: ${productStartPages.join(', ')}`);
+
   if (productStartPages.length <= 1) return null;
 
-  const srcDoc = await PDFDocument.load(buffer);
-  const totalPages = srcDoc.getPageCount();
   const results = [];
-
   for (let p = 0; p < productStartPages.length; p++) {
     const startPage = productStartPages[p];
     const endPage = p + 1 < productStartPages.length ? productStartPages[p + 1] - 1 : totalPages - 1;
@@ -87,7 +93,7 @@ async function splitPdfByProduct(buffer, baseFilename) {
     pages.forEach(pg => subDoc.addPage(pg));
 
     const subBuffer = Buffer.from(await subDoc.save());
-    const productName = extractProductNameFromText(pageTexts[startPage] || '');
+    const productName = extractProductNameFromText(pageTexts[startPage]);
     const partFilename = productName
       ? `${productName}.pdf`
       : baseFilename.replace(/\.pdf$/i, `_part${p + 1}.pdf`);
