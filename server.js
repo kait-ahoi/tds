@@ -25,6 +25,32 @@ const upload = multer({
 
 const TDS_PAGE_MARKERS = ['technical data sheet', 'techninių duomenų lapas'];
 
+function extractProductNameFromText(text) {
+  const lower = text.toLowerCase();
+  let searchFrom = 0;
+  for (const marker of TDS_PAGE_MARKERS) {
+    const idx = lower.indexOf(marker);
+    if (idx !== -1) { searchFrom = idx + marker.length; break; }
+  }
+  let shellIdx = lower.indexOf('shell', searchFrom);
+  if (shellIdx === -1) shellIdx = lower.indexOf('shell');
+  if (shellIdx === -1) return '';
+  const words = text.substring(shellIdx).split(/\s+/);
+  const name = [];
+  for (const w of words) {
+    if (!w) continue;
+    if (name.length >= 7) break;
+    if (/^(technical|data|sheet|techninių|duomenų|lapas)$/i.test(w)) break;
+    if (/^\d{5,}$/.test(w)) break;
+    name.push(w);
+  }
+  return name.join('_')
+    .replace(/[^a-zA-Z0-9_\-]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 60);
+}
+
 async function splitPdfByProduct(buffer, baseFilename) {
   const pageTexts = [];
   await pdfParse(buffer, {
@@ -61,7 +87,10 @@ async function splitPdfByProduct(buffer, baseFilename) {
     pages.forEach(pg => subDoc.addPage(pg));
 
     const subBuffer = Buffer.from(await subDoc.save());
-    const partFilename = baseFilename.replace(/\.pdf$/i, `_part${p + 1}.pdf`);
+    const productName = extractProductNameFromText(pageTexts[startPage] || '');
+    const partFilename = productName
+      ? `${productName}.pdf`
+      : baseFilename.replace(/\.pdf$/i, `_part${p + 1}.pdf`);
     results.push({ buffer: subBuffer, filename: partFilename });
   }
 
@@ -86,7 +115,6 @@ app.post('/api/submit', upload.single('fail'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
   try {
     const safeFilename = `${Date.now()}_${req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-    fs.writeFileSync(path.join(UPLOAD_DIR, safeFilename), req.file.buffer);
 
     let parts = null;
     try {
@@ -96,6 +124,7 @@ app.post('/api/submit', upload.single('fail'), async (req, res) => {
     }
 
     if (parts) {
+      fs.writeFileSync(path.join(UPLOAD_DIR, safeFilename), req.file.buffer);
       console.log(`Multi-product PDF: ${parts.length} products detected in ${safeFilename}`);
       for (const part of parts) {
         fs.writeFileSync(path.join(UPLOAD_DIR, part.filename), part.buffer);
@@ -103,8 +132,15 @@ app.post('/api/submit', upload.single('fail'), async (req, res) => {
       }
       res.json({ ok: true, filename: safeFilename, parts: parts.length });
     } else {
-      await sendToN8n(req.file.buffer, req.file.originalname, safeFilename);
-      res.json({ ok: true, filename: safeFilename, parts: 1 });
+      let storageFilename = safeFilename;
+      try {
+        const parsed = await pdfParse(req.file.buffer);
+        const productName = extractProductNameFromText(parsed.text);
+        if (productName) storageFilename = `${productName}.pdf`;
+      } catch(e) {}
+      fs.writeFileSync(path.join(UPLOAD_DIR, storageFilename), req.file.buffer);
+      await sendToN8n(req.file.buffer, storageFilename, storageFilename);
+      res.json({ ok: true, filename: storageFilename, parts: 1 });
     }
   } catch (e) {
     console.error('/api/submit error:', e.message);
