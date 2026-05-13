@@ -69,6 +69,7 @@ async function splitPdfByProduct(buffer, baseFilename) {
   }
 
   console.log(`PDF pages scanned: ${totalPages}, non-empty: ${pageTexts.filter(t => t).length}`);
+  if (pageTexts[0]) console.log(`Page 0 text sample: ${pageTexts[0].slice(0, 300).replace(/\n/g, '↵')}`);
 
   const productStartPages = [];
   for (let i = 0; i < pageTexts.length; i++) {
