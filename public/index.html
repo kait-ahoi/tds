@@ -318,11 +318,12 @@
           <th>SKU EE</th>
           <th>SKU LV</th>
           <th>SKU LT</th>
+          <th x-text="t.fields.added"></th>
         </tr>
       </thead>
       <tbody>
         <template x-if="filteredRows.length === 0">
-          <tr><td colspan="11" class="empty" x-text="t.noData"></td></tr>
+          <tr><td colspan="12" class="empty" x-text="t.noData"></td></tr>
         </template>
         <template x-for="row in filteredRows" :key="row.id">
           <tr>
@@ -343,6 +344,7 @@
             <td class="sku" x-text="row.SKU_EE || '—'"></td>
             <td class="sku" x-text="row.SKU_LV || '—'"></td>
             <td class="sku" x-text="row.SKU_LT || '—'"></td>
+            <td style="white-space:nowrap;font-size:0.82rem;color:#555;" x-text="row.createdAt ? new Date(row.createdAt).toLocaleString('et-EE', { timeZone: 'Europe/Tallinn' }) : '—'"></td>
           </tr>
         </template>
       </tbody>
@@ -388,7 +390,7 @@ const translations = {
     unknownProduct: 'Toode tuvastamata',
     detectionFailed: 'Tuvastus ebaõnnestus',
     detectionFailedDesc: 'PDF-i töötlemine ebaõnnestus. Arendaja on teavitatud.',
-    fields: { shortDesc: 'Lühikirjeldus', product: 'Tootenimi', viscosity: 'Viskoossus', fuel: 'Kütus' }
+    fields: { shortDesc: 'Lühikirjeldus', product: 'Tootenimi', viscosity: 'Viskoossus', fuel: 'Kütus', added: 'Lisatud' }
   },
   lv: {
     title: 'Shell TDS Extractor',
@@ -406,7 +408,7 @@ const translations = {
     unknownProduct: 'Produkts nav atklāts',
     detectionFailed: 'Atklāšana neizdevās',
     detectionFailedDesc: 'PDF apstrāde neizdevās. Izstrādātājs ir informēts.',
-    fields: { shortDesc: 'Īss apraksts', product: 'Produkta nosaukums', viscosity: 'Viskozitāte', fuel: 'Degviela' }
+    fields: { shortDesc: 'Īss apraksts', product: 'Produkta nosaukums', viscosity: 'Viskozitāte', fuel: 'Degviela', added: 'Pievienots' }
   },
   lt: {
     title: 'Shell TDS Extractor',
@@ -424,7 +426,7 @@ const translations = {
     unknownProduct: 'Produktas neaptiktas',
     detectionFailed: 'Aptikimas nepavyko',
     detectionFailedDesc: 'PDF apdorojimas nepavyko. Kūrėjas informuotas.',
-    fields: { shortDesc: 'Trumpas aprašymas', product: 'Produkto pavadinimas', viscosity: 'Klampumas', fuel: 'Kuras' }
+    fields: { shortDesc: 'Trumpas aprašymas', product: 'Produkto pavadinimas', viscosity: 'Klampumas', fuel: 'Kuras', added: 'Pridėta' }
   },
   en: {
     title: 'Shell TDS Extractor',
@@ -442,7 +444,7 @@ const translations = {
     unknownProduct: 'Product not detected',
     detectionFailed: 'Detection failed',
     detectionFailedDesc: 'PDF processing failed. Developer has been notified.',
-    fields: { shortDesc: 'Short description', product: 'Product name', viscosity: 'Viscosity', fuel: 'Fuel' }
+    fields: { shortDesc: 'Short description', product: 'Product name', viscosity: 'Viscosity', fuel: 'Fuel', added: 'Added' }
   }
 };
 

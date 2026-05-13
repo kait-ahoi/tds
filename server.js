@@ -77,6 +77,7 @@ async function splitPdfByProduct(buffer, baseFilename) {
   console.log(`PDF split: ${totalPages} pages, ${markerPositions.length} products, ${pagesPerProduct} pages/product`);
 
   const results = [];
+  const usedNames = new Set();
   for (let p = 0; p < markerPositions.length; p++) {
     const startPage = p * pagesPerProduct;
     const endPage = p + 1 < markerPositions.length
@@ -89,11 +90,18 @@ async function splitPdfByProduct(buffer, baseFilename) {
     pages.forEach(pg => subDoc.addPage(pg));
 
     const subBuffer = Buffer.from(await subDoc.save());
-    const sectionEnd = p + 1 < markerPositions.length ? markerPositions[p + 1] : fullText.length;
-    const productName = extractProductNameFromText(fullText.slice(markerPositions[p], sectionEnd));
-    const partFilename = productName
+    const productName = extractProductNameFromText(fullText.slice(markerPositions[p], markerPositions[p] + 300));
+    let partFilename = productName
       ? `${productName}.pdf`
       : baseFilename.replace(/\.pdf$/i, `_part${p + 1}.pdf`);
+    if (usedNames.has(partFilename)) {
+      const base = partFilename.replace(/\.pdf$/i, '');
+      let n = 2;
+      while (usedNames.has(`${base}_${n}.pdf`)) n++;
+      partFilename = `${base}_${n}.pdf`;
+    }
+    usedNames.add(partFilename);
+    console.log(`Product ${p + 1}: "${fullText.slice(markerPositions[p], markerPositions[p] + 80).replace(/\n/g, '↵')}" → ${partFilename}`);
     results.push({ buffer: subBuffer, filename: partFilename });
   }
 
