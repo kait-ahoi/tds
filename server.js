@@ -52,6 +52,9 @@ function extractProductNameFromText(text) {
 }
 
 async function splitPdfByProduct(buffer, baseFilename) {
+  const fullParsed = await pdfParse(buffer);
+  console.log(`Full PDF text sample: ${fullParsed.text.slice(0, 400).replace(/\n/g, '↵')}`);
+
   const srcDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
   const totalPages = srcDoc.getPageCount();
 
