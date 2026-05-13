@@ -335,7 +335,10 @@
             <td class="sku" x-text="row.SKU_EE || '—'"></td>
             <td class="sku" x-text="row.SKU_LV || '—'"></td>
             <td class="sku" x-text="row.SKU_LT || '—'"></td>
-            <td><button x-show="row.pdf_filename" @click="rerun(row.pdf_filename)" style="font-size:0.75rem;padding:2px 8px;cursor:pointer;">↺</button></td>
+            <td style="white-space:nowrap">
+            <button x-show="row.pdf_filename" @click="rerun(row.pdf_filename)" style="font-size:0.75rem;padding:2px 8px;cursor:pointer;" title="Re-run">↺</button>
+            <a x-show="row.pdf_filename" :href="`/api/pdf/${row.pdf_filename}`" target="_blank" style="font-size:0.75rem;padding:2px 8px;cursor:pointer;text-decoration:none;color:#DD1D21;border:1px solid #DD1D21;border-radius:3px;margin-left:4px;" title="Download PDF">PDF</a>
+          </td>
           </tr>
         </template>
       </tbody>
@@ -479,7 +482,7 @@ function app() {
       this.newRows = [];
       this.uploadFailed = false;
       const maxId = this.rows.length ? Math.max(...this.rows.map(r => r.id || 0)) : 0;
-      let ok = 0, fail = 0;
+      let ok = 0, fail = 0, totalExpected = 0;
 
       for (let i = 0; i < this.files.length; i++) {
         this.statusMsg = `${i + 1}/${this.files.length}: ${this.files[i].name}`;
@@ -492,7 +495,9 @@ function app() {
             const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
             throw new Error(body.error || `HTTP ${res.status}`);
           }
+          const data = await res.json();
           ok++;
+          totalExpected += (data.parts || 1);
         } catch (e) {
           fail++;
           this.notifyError(`Üleslaadimise viga: ${this.files[i].name}`, e.message);
@@ -508,11 +513,11 @@ function app() {
       }
 
       this.statusMsg = this.lang === 'et'
-        ? `Saadetud ${ok}/${this.files.length}. Ootan tulemusi...`
-        : `Sent ${ok}/${this.files.length}. Waiting for results...`;
+        ? `Saadetud ${ok}/${this.files.length}. Ootan ${totalExpected} tulemust...`
+        : `Sent ${ok}/${this.files.length}. Waiting for ${totalExpected} result(s)...`;
       this.statusClass = 'info';
 
-      await this.pollForResults(maxId, ok);
+      await this.pollForResults(maxId, totalExpected);
     },
 
     async pollForResults(maxId, expectedCount) {
