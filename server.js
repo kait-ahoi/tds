@@ -53,43 +53,35 @@ function extractProductNameFromText(text) {
 
 async function splitPdfByProduct(buffer, baseFilename) {
   const fullParsed = await pdfParse(buffer);
-  console.log(`Full PDF text sample: ${fullParsed.text.slice(0, 400).replace(/\n/g, '↵')}`);
+  const fullText = fullParsed.text;
+  const lowerFull = fullText.toLowerCase();
+
+  const markerPositions = [];
+  for (const marker of TDS_PAGE_MARKERS) {
+    let pos = 0;
+    while (true) {
+      const idx = lowerFull.indexOf(marker, pos);
+      if (idx === -1) break;
+      markerPositions.push(idx);
+      pos = idx + marker.length;
+    }
+  }
+  markerPositions.sort((a, b) => a - b);
+
+  console.log(`TDS markers in full text: ${markerPositions.length}`);
+  if (markerPositions.length <= 1) return null;
 
   const srcDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
   const totalPages = srcDoc.getPageCount();
-
-  // Extract text per page reliably by parsing each page individually
-  const pageTexts = new Array(totalPages).fill('');
-  for (let i = 0; i < totalPages; i++) {
-    try {
-      const pageDoc = await PDFDocument.create();
-      const [pg] = await pageDoc.copyPages(srcDoc, [i]);
-      pageDoc.addPage(pg);
-      const pageBuf = Buffer.from(await pageDoc.save());
-      const parsed = await pdfParse(pageBuf);
-      pageTexts[i] = parsed.text || '';
-    } catch(e) { /* leave empty */ }
-  }
-
-  console.log(`PDF pages scanned: ${totalPages}, non-empty: ${pageTexts.filter(t => t).length}`);
-  if (pageTexts[0]) console.log(`Page 0 text sample: ${pageTexts[0].slice(0, 300).replace(/\n/g, '↵')}`);
-
-  const productStartPages = [];
-  for (let i = 0; i < pageTexts.length; i++) {
-    const lower = pageTexts[i].toLowerCase();
-    if (TDS_PAGE_MARKERS.some(m => lower.includes(m))) {
-      productStartPages.push(i);
-    }
-  }
-
-  console.log(`TDS markers found on pages: ${productStartPages.join(', ')}`);
-
-  if (productStartPages.length <= 1) return null;
+  const pagesPerProduct = Math.round(totalPages / markerPositions.length);
+  console.log(`PDF split: ${totalPages} pages, ${markerPositions.length} products, ${pagesPerProduct} pages/product`);
 
   const results = [];
-  for (let p = 0; p < productStartPages.length; p++) {
-    const startPage = productStartPages[p];
-    const endPage = p + 1 < productStartPages.length ? productStartPages[p + 1] - 1 : totalPages - 1;
+  for (let p = 0; p < markerPositions.length; p++) {
+    const startPage = p * pagesPerProduct;
+    const endPage = p + 1 < markerPositions.length
+      ? Math.min((p + 1) * pagesPerProduct - 1, totalPages - 1)
+      : totalPages - 1;
 
     const subDoc = await PDFDocument.create();
     const indices = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
@@ -97,7 +89,8 @@ async function splitPdfByProduct(buffer, baseFilename) {
     pages.forEach(pg => subDoc.addPage(pg));
 
     const subBuffer = Buffer.from(await subDoc.save());
-    const productName = extractProductNameFromText(pageTexts[startPage]);
+    const sectionEnd = p + 1 < markerPositions.length ? markerPositions[p + 1] : fullText.length;
+    const productName = extractProductNameFromText(fullText.slice(markerPositions[p], sectionEnd));
     const partFilename = productName
       ? `${productName}.pdf`
       : baseFilename.replace(/\.pdf$/i, `_part${p + 1}.pdf`);
