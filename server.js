@@ -90,6 +90,8 @@ async function splitPdfByProduct(buffer, baseFilename) {
     pages.forEach(pg => subDoc.addPage(pg));
 
     const subBuffer = Buffer.from(await subDoc.save());
+    const sectionEnd = p + 1 < markerPositions.length ? markerPositions[p + 1] : fullText.length;
+    const sectionText = fullText.slice(markerPositions[p], sectionEnd);
     const productName = extractProductNameFromText(fullText.slice(markerPositions[p], markerPositions[p] + 300));
     let partFilename = productName
       ? `${productName}.pdf`
@@ -102,16 +104,17 @@ async function splitPdfByProduct(buffer, baseFilename) {
     }
     usedNames.add(partFilename);
     console.log(`Product ${p + 1}: "${fullText.slice(markerPositions[p], markerPositions[p] + 80).replace(/\n/g, '↵')}" → ${partFilename}`);
-    results.push({ buffer: subBuffer, filename: partFilename });
+    results.push({ buffer: subBuffer, filename: partFilename, text: sectionText });
   }
 
   return results;
 }
 
-async function sendToN8n(buffer, originalname, savedFilename = '') {
+async function sendToN8n(buffer, originalname, savedFilename = '', pdfText = '') {
   const form = new FormData();
   form.append('fail', buffer, { filename: savedFilename || originalname, contentType: 'application/pdf' });
   if (savedFilename) form.append('saved_filename', savedFilename);
+  if (pdfText) form.append('pdf_text', pdfText);
   await axios.post(process.env.N8N_FORM_URL, form, { headers: form.getHeaders() });
 }
 
@@ -139,18 +142,20 @@ app.post('/api/submit', upload.single('fail'), async (req, res) => {
       console.log(`Multi-product PDF: ${parts.length} products detected in ${safeFilename}`);
       for (const part of parts) {
         fs.writeFileSync(path.join(UPLOAD_DIR, part.filename), part.buffer);
-        await sendToN8n(part.buffer, part.filename, part.filename);
+        await sendToN8n(part.buffer, part.filename, part.filename, part.text);
       }
       res.json({ ok: true, filename: safeFilename, parts: parts.length });
     } else {
       let storageFilename = safeFilename;
+      let pdfText = '';
       try {
         const parsed = await pdfParse(req.file.buffer);
+        pdfText = parsed.text;
         const productName = extractProductNameFromText(parsed.text);
         if (productName) storageFilename = `${productName}.pdf`;
       } catch(e) {}
       fs.writeFileSync(path.join(UPLOAD_DIR, storageFilename), req.file.buffer);
-      await sendToN8n(req.file.buffer, storageFilename, storageFilename);
+      await sendToN8n(req.file.buffer, storageFilename, storageFilename, pdfText);
       res.json({ ok: true, filename: storageFilename, parts: 1 });
     }
   } catch (e) {
@@ -164,7 +169,12 @@ app.post('/api/rerun/:filename', async (req, res) => {
   if (!fs.existsSync(file)) return res.status(404).json({ error: 'File not found' });
   try {
     const buffer = fs.readFileSync(file);
-    await sendToN8n(buffer, path.basename(file), path.basename(file));
+    let pdfText = '';
+    try {
+      const parsed = await pdfParse(buffer);
+      pdfText = parsed.text;
+    } catch(e) {}
+    await sendToN8n(buffer, path.basename(file), path.basename(file), pdfText);
     res.json({ ok: true });
   } catch (e) {
     console.error('/api/rerun error:', e.message);
